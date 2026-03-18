@@ -1,0 +1,26 @@
+services:
+  # The "Streamer" (Producer): Mimics real-time ICU data
+  streamer:
+    build: ./streamer
+    container_name: aki_streamer
+    volumes:
+      - ./data:/app/data:ro # Read-only access to MIMIC-IV CSVs
+    depends_on:
+      - lakehouse
+    networks:
+      - aki_network
+
+  # The "Lakehouse": Handles FastAPI, DuckDB, and Medallion logic
+  lakehouse:
+    build: ./lakehouse
+    container_name: aki_lakehouse
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./lakehouse_db:/app/database # Persists the Bronze/Silver/Gold data
+    networks:
+      - aki_network
+
+networks:
+  aki_network:
+    driver: bridge
