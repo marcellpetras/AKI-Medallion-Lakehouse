@@ -1,1 +1,0 @@
-# AKI-Medallion-Lakehouse

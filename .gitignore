@@ -1,1 +1,3 @@
 /data/
+.venv/
+export_to_excel.py
