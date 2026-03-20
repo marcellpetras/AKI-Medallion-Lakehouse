@@ -1,3 +1,6 @@
 /data/
 .venv/
-export_to_excel.py
+validate_db.py
+lakehouse_db/
+*.db
+*.xlsx
