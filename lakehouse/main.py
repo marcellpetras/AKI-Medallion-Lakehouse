@@ -10,9 +10,9 @@ def init_db():
     print("Initializing Database...")
     conn = duckdb.connect(DB_PATH)
     # Create tables for master data
-    conn.execute("CREATE TABLE IF NOT EXISTS bronze_patients AS SELECT * FROM 'data/MimicPatient_top50.csv' WHERE 1=0")
-    conn.execute("CREATE TABLE IF NOT EXISTS bronze_encounters AS SELECT * FROM 'data/MimicEncounterICU_top50.csv' WHERE 1=0")
-    conn.execute("CREATE TABLE IF NOT EXISTS bronze_conditions AS SELECT * FROM 'data/MimicCondition_top50.csv' WHERE 1=0")
+    conn.execute("CREATE TABLE IF NOT EXISTS bronze_patients AS SELECT * FROM '/app/data/MimicPatient_top50.csv' WHERE 1=0")
+    conn.execute("CREATE TABLE IF NOT EXISTS bronze_encounters AS SELECT * FROM '/app/data/MimicEncounterICU_top50.csv' WHERE 1=0")
+    conn.execute("CREATE TABLE IF NOT EXISTS bronze_conditions AS SELECT * FROM '/app/data/MimicCondition_top50.csv' WHERE 1=0")
     # Table for high-frequency streaming
     conn.execute("CREATE TABLE IF NOT EXISTS bronze_observations (raw_data JSON, ingestion_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
     conn.close()

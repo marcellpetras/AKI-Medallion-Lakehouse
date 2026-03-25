@@ -1,6 +1,6 @@
 /data/
 .venv/
-validate_db.py
+validation.py
 lakehouse_db/
 *.db
 *.xlsx
