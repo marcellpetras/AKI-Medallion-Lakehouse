@@ -1,6 +1,8 @@
 /data/
 .venv/
-validation.py
 lakehouse_db/
 *.db
 *.xlsx
+__pycache__/
+*.pyc
+.DS_Store

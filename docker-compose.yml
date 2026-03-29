@@ -1,27 +1,6 @@
 services:
-  # The "Streamer" (Producer): Mimics real-time ICU data
-  streamer:
-    build: ./streamer
-    container_name: aki_streamer
+  pipeline:
+    build: ./pipeline
     volumes:
-      - ./data:/app/data:ro
-    depends_on:
-      - lakehouse
-    networks:
-      - aki_network
-
-  # The "Lakehouse": Handles FastAPI, DuckDB, and Medallion logic
-  lakehouse:
-    build: ./lakehouse
-    container_name: aki_lakehouse
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./lakehouse_db:/app/database # Persists the Bronze/Silver/Gold data
-      - ./data:/app/data:ro
-    networks:
-      - aki_network
-
-networks:
-  aki_network:
-    driver: bridge
+      - ./data:/app/data
+      - ./lakehouse_db:/app/lakehouse_db
