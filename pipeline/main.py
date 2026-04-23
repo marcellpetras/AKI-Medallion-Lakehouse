@@ -1,6 +1,6 @@
 import time
 from pipeline.jobs.bronze import build_bronze_layer
-# from pipeline.jobs.silver import build_silver_layer
+from pipeline.jobs.silver import build_silver_layer
 # from pipeline.jobs.gold import build_gold_layer
 
 if __name__ == "__main__":
@@ -9,8 +9,8 @@ if __name__ == "__main__":
     # 1. Bronze Phase
     build_bronze_layer()
     
-    # 2. Silver Phase (TBD)
-    # build_silver_layer()
+    # 2. Silver Phase
+    build_silver_layer()
     
     # 3. Gold Phase (TBD)
     # build_gold_layer()
