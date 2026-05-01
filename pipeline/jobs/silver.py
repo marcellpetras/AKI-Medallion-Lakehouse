@@ -287,5 +287,46 @@ def build_silver_layer():
         SELECT * FROM flagged_conditions;
     """)
     
+    # ---------------------------------------------------------
+    # 8. silver_medications
+    # ---------------------------------------------------------
+    print("Building silver_medications...")
+    conn.execute("""
+        CREATE OR REPLACE TABLE silver_medications AS 
+        WITH raw_meds AS (
+            SELECT 
+                SPLIT_PART(context.reference, '/', 2) AS stay_id,
+                SPLIT_PART(subject.reference, '/', 2) AS patient_id,
+                
+                -- Handle both bolus pushes (DateTime) and IV infusions (Period)
+                COALESCE(
+                    CAST(effectiveDateTime AS TIMESTAMP), 
+                    CAST(effectivePeriod.start AS TIMESTAMP)
+                ) AS charttime,
+                CAST(effectivePeriod."end" AS TIMESTAMP) AS endtime,
+                
+                -- Extract core medication identifiers
+                medicationCodeableConcept.coding[1].code AS medication_code,
+                medicationCodeableConcept.coding[1].display AS medication_name,
+                
+                -- Dosages might be an absolute dose or an infusion rate
+                COALESCE(dosage.dose.value, dosage.rateQuantity.value) AS dose,
+                COALESCE(dosage.dose.unit, dosage.rateQuantity.unit) AS dose_unit
+            FROM bronze_medications
+        )
+        SELECT 
+            m.stay_id,
+            m.patient_id,
+            m.charttime,
+            m.endtime,
+            m.medication_code,
+            m.medication_name,
+            m.dose,
+            m.dose_unit
+        FROM raw_meds m
+        INNER JOIN silver_stays s 
+          ON m.stay_id = s.stay_id;
+    """)
+
     print("Silver phase complete.")
     conn.close()
