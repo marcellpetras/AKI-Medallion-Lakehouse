@@ -15,25 +15,25 @@ def build_silver_layer():
         CREATE OR REPLACE TABLE silver_stays AS 
         WITH parsed_patients AS (
             SELECT 
-                id AS patient_id,
+                CAST(id AS VARCHAR) AS patient_id,
                 gender,
                 CAST(birthDate AS TIMESTAMP) AS birth_date
             FROM bronze_patients
         ),
         parsed_encounters AS (
             SELECT 
-                id AS stay_id,
-                SPLIT_PART(REPLACE(REPLACE(subject, '''', ''), '}', ''), '/', 2) AS patient_id,
-                CAST(REGEXP_EXTRACT(period, '''start'':\s*''([^'']+)''', 1) AS TIMESTAMP) AS intime,
-                CAST(REGEXP_EXTRACT(period, '''end'':\s*''([^'']+)''', 1) AS TIMESTAMP) AS outtime
+                CAST(id AS VARCHAR) AS stay_id,
+                SPLIT_PART(subject.reference, '/', 2) AS patient_id,
+                CAST(period.start AS TIMESTAMP) AS intime,
+                CAST(period."end" AS TIMESTAMP) AS outtime
             FROM bronze_encounters
         ),
         admission_weights AS (
             SELECT 
-                SPLIT_PART(REPLACE(REPLACE(encounter, '''', ''), '}', ''), '/', 2) AS stay_id,
-                CAST(REGEXP_EXTRACT(valueQuantity, '''value'':\s*([0-9.]+)', 1) AS DOUBLE) AS admission_weight
+                SPLIT_PART(encounter.reference, '/', 2) AS stay_id,
+                valueQuantity.value AS admission_weight
             FROM bronze_chartevents
-            WHERE REPLACE(code, '''', '"') LIKE '%226512%' -- Admission Weight code (kg)
+            WHERE code.coding[1].code = '226512' -- Admission Weight code (kg)
         )
         
         -- if more than one admission weights exists
@@ -64,12 +64,12 @@ def build_silver_layer():
         CREATE OR REPLACE TABLE silver_creatinine AS 
         WITH raw_labs AS (
             SELECT 
-                SPLIT_PART(REPLACE(REPLACE(subject, '''', ''), '}', ''), '/', 2) AS patient_id,
+                SPLIT_PART(subject.reference, '/', 2) AS patient_id,
                 CAST(effectiveDateTime AS TIMESTAMP) AS charttime,
-                CAST(REGEXP_EXTRACT(valueQuantity, '''value'':\s*([0-9.]+)', 1) AS DOUBLE) AS valuenum
+                valueQuantity.value AS valuenum
             FROM bronze_labevents
-            WHERE REPLACE(code, '''', '"') LIKE '%50912%' -- Creatinine code
-                AND valueQuantity IS NOT NULL
+            WHERE code.coding[1].code = '50912' -- Creatinine code
+                AND valueQuantity.value IS NOT NULL
         )
         SELECT 
             s.stay_id,
@@ -90,11 +90,11 @@ def build_silver_layer():
     conn.execute("""
         CREATE OR REPLACE TABLE silver_urine_output AS 
         SELECT 
-            SPLIT_PART(REPLACE(REPLACE(encounter, '''', ''), '}', ''), '/', 2) AS stay_id,
+            SPLIT_PART(encounter.reference, '/', 2) AS stay_id,
             CAST(effectiveDateTime AS TIMESTAMP) AS charttime,
-            CAST(REGEXP_EXTRACT(valueQuantity, '''value'':\s*([0-9.]+)', 1) AS DOUBLE) AS urine_volume
+            valueQuantity.value AS urine_volume
         FROM bronze_outputevents
-        WHERE (REPLACE(code, '''', '"') LIKE '%226559%' OR REPLACE(code, '''', '"') LIKE '%226560%') -- "Urine Out - Foley" and "Urine Out - Other."
+        WHERE code.coding[1].code IN ('226559', '226560') -- "Urine Out - Foley" and "Urine Out - Other."
             AND stay_id IS NOT NULL
             AND stay_id != ''
             AND urine_volume IS NOT NULL;
@@ -207,22 +207,18 @@ def build_silver_layer():
         ),
         extracted AS (
             SELECT 
-                SPLIT_PART(REPLACE(REPLACE(encounter, '''', ''), '}', ''), '/', 2) AS stay_id_raw,
-                SPLIT_PART(REPLACE(REPLACE(subject, '''', ''), '}', ''), '/', 2) AS patient_id,
+                SPLIT_PART(encounter.reference, '/', 2) AS stay_id_raw,
+                SPLIT_PART(subject.reference, '/', 2) AS patient_id,
                 CAST(effectiveDateTime AS TIMESTAMP) AS charttime,
-                CAST(REGEXP_EXTRACT(valueQuantity, '''value'':\s*([0-9.]+)', 1) AS DOUBLE) AS valuenum,
+                valueQuantity.value AS valuenum,
                 CASE 
-                    WHEN REPLACE(code, '''', '"') LIKE '%220045%' THEN 'heart_rate'
-                    WHEN REPLACE(code, '''', '"') LIKE '%220052%' THEN 'map' --shorthand for "Mean Arterial Pressure"
-                    WHEN REPLACE(code, '''', '"') LIKE '%51006%' THEN 'bun' --shorthand for "Blood Urea Nitrogen"
+                    WHEN code.coding[1].code = '220045' THEN 'heart_rate'
+                    WHEN code.coding[1].code = '220052' THEN 'map' --shorthand for "Mean Arterial Pressure"
+                    WHEN code.coding[1].code = '51006' THEN 'bun' --shorthand for "Blood Urea Nitrogen"
                 END AS vital_type
             FROM combined
-            WHERE (
-                REPLACE(code, '''', '"') LIKE '%220045%' OR 
-                REPLACE(code, '''', '"') LIKE '%220052%' OR 
-                REPLACE(code, '''', '"') LIKE '%51006%'
-            )
-            AND REGEXP_EXTRACT(valueQuantity, '''value'':\s*([0-9.]+)', 1) IS NOT NULL
+            WHERE code.coding[1].code IN ('220045', '220052', '51006')
+            AND valueQuantity.value IS NOT NULL
         )
         SELECT 
             -- Use the ID provided in the record or link it to a stay based on the timestamp
@@ -246,11 +242,11 @@ def build_silver_layer():
         CREATE OR REPLACE TABLE silver_comorbidities AS 
         WITH extracted_codes AS (
             SELECT 
-                SPLIT_PART(REPLACE(REPLACE(subject, '''', ''), '}', ''), '/', 2) AS patient_id,
+                SPLIT_PART(subject.reference, '/', 2) AS patient_id,
                 -- Extract the system (ICD-9 vs ICD-10)
-                REGEXP_EXTRACT(code, '''system'':\s*''([^'']+)''', 1) as icd_system,
+                code.coding[1].system as icd_system,
                 -- Extract the specific code
-                REGEXP_EXTRACT(code, '''code'':\s*''?([a-zA-Z0-9.]+)''?', 1) as icd_code
+                code.coding[1].code as icd_code
             FROM bronze_conditions
         ),
         flagged_conditions AS (
